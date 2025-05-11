@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jogo da Cobrinha - Fases</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, green, black);
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    #score {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    canvas {
+      background-color: #111;
+      box-shadow: 0 0 20px #0f0;
+      border-radius: 8px;
+    }
+
+    #controls {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px;
+      gap: 10px;
+    }
+
+    .btn {
+      background-color: #0f0;
+      color: #000;
+      font-weight: bold;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 0 5px #0f0;
+      cursor: pointer;
+    }
+
+    .btn:active {
+      background-color: #0a0;
+    }
+
+    #endScreen {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .invisível {
+      visibility: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Pontuação: 0 | Fase: 1</div>
+  <canvas id="game" width="400" height="400"></canvas>
+
+  <!-- Botões de controle para celular -->
+  <div id="controls">
+    <div class="invisível"></div>
+    <button class="btn" id="up-btn">↑</button>
+    <div class="invisível"></div>
+    <button class="btn" id="left-btn">←</button>
+    <button class="btn" id="down-btn">↓</button>
+    <button class="btn" id="right-btn">→</button>
+  </div>
+
+  <!-- Tela de Game Over -->
+  <div id="endScreen">
+    <p>Você morreu!</p>
+    <button class="btn" id="restartBtn">Reiniciar</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const box = 20;
+    const canvasSize = 400;
+    let score = 0;
+    let phase = 1;
+    let applesToAdvance = 5;
+    let speed = 100;
+    let snake = [{ x: 9 * box, y: 10 * box }];
+    let direction = "RIGHT";
+    let apples = [generateFood()];
+    let obstacles = [];
+
+    function generateFood() {
+      const min = 2;
+      const max = (canvas.width / box) - 3;
+      return {
+        x: Math.floor(Math.random() * (max - min + 1) + min) * box,
+        y: Math.floor(Math.random() * (max - min + 1) + min) * box
+      };
+    }
+
+    function generateObstacles() {
+      obstacles = [];
+      const numberOfObstacles = phase - 1;
+      for (let i = 0; i < numberOfObstacles; i++) {
+        const x = Math.floor(Math.random() * (canvas.width / box)) * box;
+        const y = Math.floor(Math.random() * (canvas.height / box)) * box;
+        obstacles.push({ x, y });
+      }
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#888";
+      obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, box, box));
+    }
+
+    function updatePhase() {
+      if (score >= applesToAdvance) {
+        phase++;
+        applesToAdvance += 5;
+        speed = Math.max(50, speed - 10);
+        apples.push(generateFood()); // Adiciona uma nova maçã
+        generateObstacles();
+        clearInterval(game);
+        game = setInterval(draw, speed);
+      }
+    }
+
+    function setDirection(newDir) {
+      if (newDir === "LEFT" && direction !== "RIGHT") direction = "LEFT";
+      else if (newDir === "UP" && direction !== "DOWN") direction = "UP";
+      else if (newDir === "RIGHT" && direction !== "LEFT") direction = "RIGHT";
+      else if (newDir === "DOWN" && direction !== "UP") direction = "DOWN";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") setDirection("LEFT");
+      if (e.key === "ArrowUp") setDirection("UP");
+      if (e.key === "ArrowRight") setDirection("RIGHT");
+      if (e.key === "ArrowDown") setDirection("DOWN");
+    });
+
+    // Controles mobile
+    document.getElementById("up-btn").addEventListener("touchstart", () => setDirection("UP"));
+    document.getElementById("left-btn").addEventListener("touchstart", () => setDirection("LEFT"));
+    document.getElementById("down-btn").addEventListener("touchstart", () => setDirection("DOWN"));
+    document.getElementById("right-btn").addEventListener("touchstart", () => setDirection("RIGHT"));
+
+    function collision(pos, array) {
+      return array.some(segment => segment.x === pos.x && segment.y === pos.y);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      snake.forEach((part, i) => {
+        ctx.fillStyle = i === 0 ? "#0f0" : "#0a0";
+        ctx.fillRect(part.x, part.y, box, box);
+      });
+
+      apples.forEach(apple => {
+        ctx.fillStyle = "#f00";
+        ctx.fillRect(apple.x, apple.y, box, box);
+      });
+
+      if (phase > 1) drawObstacles();
+
+      let headX = snake[0].x;
+      let headY = snake[0].y;
+      if (direction === "LEFT") headX -= box;
+      if (direction === "UP") headY -= box;
+      if (direction === "RIGHT") headX += box;
+      if (direction === "DOWN") headY += box;
+
+      if (
+        headX < 0 || headX >= canvasSize ||
+        headY < 0 || headY >= canvasSize ||
+        collision({ x: headX, y: headY }, snake) ||
+        collision({ x: headX, y: headY }, obstacles)
+      ) {
+        gameOver();
+        return;
+      }
+
+      let newHead = { x: headX, y: headY };
+
+      let ateApple = false;
+      for (let i = 0; i < apples.length; i++) {
+        if (headX === apples[i].x && headY === apples[i].y) {
+          ateApple = true;
+          apples[i] = generateFood();
+          score++;
+          updatePhase();
+          break;
+        }
+      }
+
+      if (!ateApple) snake.pop();
+      snake.unshift(newHead);
+
+      document.getElementById("score").textContent = `Pontuação: ${score} | Fase: ${phase}`;
+    }
+
+    function gameOver() {
+      clearInterval(game);
+      document.getElementById("endScreen").style.display = "block";
+    }
+
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      score = 0;
+      phase = 1;
+      applesToAdvance = 5;
+      speed = 100;
+      snake = [{ x: 9 * box, y: 10 * box }];
+      direction = "RIGHT";
+      apples = [generateFood()];
+      obstacles = [];
+      document.getElementById("endScreen").style.display = "none";
+      game = setInterval(draw, speed);
+    });
+
+    let game = setInterval(draw, speed);
+  </script>
+</body>
+</html>
